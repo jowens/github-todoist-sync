@@ -37,6 +37,10 @@ MAX_PROCESSED_IDS = 3000 # cap on how many old IDs we remember, to keep state.js
 REASONS = {"assign", "review_requested"}
 
 
+def utcnow():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 def gh_headers(token):
     return {
         "Authorization": f"token {token}",
@@ -71,7 +75,7 @@ def load_state():
 def save_state(state):
     # Keep only the most recent MAX_PROCESSED_IDS to bound file size forever.
     state["processed_ids"] = state.get("processed_ids", [])[-MAX_PROCESSED_IDS:]
-    state["last_run_at"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    state["last_run_at"] = utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2, sort_keys=True)
         f.write("\n")
@@ -86,9 +90,7 @@ def parse_next_link(link_header):
 
 
 def fetch_notifications(token):
-    since = (
-        datetime.datetime.utcnow() - datetime.timedelta(hours=LOOKBACK_HOURS)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    since = (utcnow() - datetime.timedelta(hours=LOOKBACK_HOURS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     notifications = []
     url = f"{GH_API}/notifications?all=true&since={since}&per_page=50"
     headers = gh_headers(token)
