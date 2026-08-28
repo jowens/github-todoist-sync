@@ -1,0 +1,40 @@
+name: Sync GitHub assignments to Todoist
+
+on:
+  schedule:
+    # Every 15 minutes. Safe to run this often only because this repo is
+    # public, so GitHub Actions minutes are unlimited and free here.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write   # needed so the workflow can commit the updated state.json
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run sync
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          TODOIST_TOKEN: ${{ secrets.TODOIST_TOKEN }}
+        run: python3 sync.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          if git diff --cached --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "Update sync state [skip ci]"
+            git pull --rebase origin "${{ github.ref_name }}"
+            git push origin HEAD:"${{ github.ref_name }}"
+          fi
